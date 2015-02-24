@@ -1,0 +1,19 @@
+Microsoft Visual Studio Solution File, Format Version 11.00
+# Visual Studio 2012
+Project("{56B6E0DC-7D1E-8A37-DEDF-A38511455A6D}") = "audience_piano", "audience_piano.vcxproj", "{2E53B52B-7BC2-172D-721D-4C6DF013F186}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Win32 = Debug|Win32
+		Release|Win32 = Release|Win32
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{2E53B52B-7BC2-172D-721D-4C6DF013F186}.Debug|Win32.ActiveCfg = Debug|Win32
+		{2E53B52B-7BC2-172D-721D-4C6DF013F186}.Debug|Win32.Build.0 = Debug|Win32
+		{2E53B52B-7BC2-172D-721D-4C6DF013F186}.Release|Win32.ActiveCfg = Release|Win32
+		{2E53B52B-7BC2-172D-721D-4C6DF013F186}.Release|Win32.Build.0 = Release|Win32
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal
