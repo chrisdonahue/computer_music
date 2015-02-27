@@ -6,9 +6,11 @@
 	// return if no support for websocket or canvas
 	if (!window.supports_websocket) {
 		alert('Sorry, WebSocket not supported on this browser.');
+		throw 'WebSocket not supported on this browser';
 	}
 	if (!window.supports_canvas) {
 		alert('Sorry, HTML5 Canvas not supported on this browser.');
+		throw 'HTML5 Canvas not supported on this browser';
 	}
 
 	/*
@@ -17,13 +19,16 @@
 
 	var state = {
 		client: {
-			mouse_x: -1,
-			mouse_y: -1,
 			mouse_down: false,
+			midi_note_number: null,
+			midi_note_velocity: 127
 		},
 		ui: {
-			ui_midi_display_lower: 60,
-			ui_midi_display_upper: 71
+			width_px: null,
+			height_px: null,
+			midi_note_number_display_lower: null,
+			midi_note_number_display_upper: null,
+			midi_note_number_to_bounding_box: null
 		}
 	};
 
@@ -58,29 +63,107 @@
 		return _midi_note_names[remainder][0] + String(dividend);
 	};
 
-	helpers.midi.note_number_key_white_is = function(midi_note_number) {
-		while (midi_note_number < 0) {
-			midi_note_number += 12;
+	
+	helpers.midi.note_number_key_white_is = (function() {
+		var midi_note_number_key_white_is_cache = {};
+		return function(midi_note_number) {
+			// return memoized
+			if (midi_note_number in midi_note_number_key_white_is_cache) {
+				return midi_note_number_key_white_is_cache[midi_note_number];
+			}
+
+			// otherwise calculate
+			while (midi_note_number < 0) {
+				midi_note_number += 12;
+			}
+			remainder = midi_note_number % 12;
+			var midi_note_number_key_white_is =  	remainder === 0 ||
+													remainder === 2 ||
+													remainder === 4 ||
+													remainder === 5 ||
+													remainder === 7 ||
+													remainder === 9 ||
+													remainder === 11;
+
+			// memoize
+			midi_note_number_key_white_is_cache[midi_note_number] = midi_note_number_key_white_is;
+
+			// return result
+			return midi_note_number_key_white_is;
 		}
-		remainder = midi_note_number % 12;
-		return 	remainder == 0 ||
-				remainder == 2 ||
-				remainder == 4 ||
-				remainder == 5 ||
-				remainder == 7 ||
-				remainder == 9 ||
-				remainder == 11;
-	};
+	;})();
 	
 	helpers.midi.note_number_key_black_is = function(midi_note_number) {
-		return !(helpers.midi_note_number_key_white_is(midi_note_number));
+		return !(helpers.midi.note_number_key_white_is(midi_note_number));
 	};
 
 	// ui helpers
-	helpers.ui = {}
+	helpers.ui = {};
 
-	helpers.ui.intersect_rect = function(x, y, rect_x, rect_y, rect_width, rect_height) {
-		return (rect_x <= x && x < rect_x + rect_width) && (rect_y <= y && y < rect_y + rect_height);
+	helpers.ui.midi_note_number_to_bounding_box_recalculate = function() {
+		state.ui.midi_note_number_to_bounding_box = {};
+
+		// count white keys
+		var keys_white_total = 0;
+		for (var midi_note_number = state.ui.midi_note_number_display_lower; midi_note_number <= state.ui.midi_note_number_display_upper; midi_note_number++) {
+			if (helpers.midi.note_number_key_white_is(midi_note_number)) {
+				keys_white_total++;
+			}
+		}
+
+		// create bounding boxes
+		var key_white_width = Math.floor(state.ui.width_px / keys_white_total);
+		var key_white_height = state.ui.height_px;
+		var key_black_width = key_white_width * 0.8;
+		var key_black_height = key_white_height * 0.6;
+		var key_black_offset = key_white_width * 0.6;
+		var keys_white_calculated = 0;
+		var keys_black_calculated = 0;
+		for (midi_note_number = state.ui.midi_note_number_display_lower; midi_note_number <= state.ui.midi_note_number_display_upper; midi_note_number++) {
+			var bounding_box = {};
+
+			// white key bounding box
+			if (helpers.midi.note_number_key_white_is(midi_note_number)) {
+				bounding_box.x = keys_white_calculated * key_white_width;
+				bounding_box.y = 0;
+				bounding_box.width = key_white_width;
+				bounding_box.height = key_white_height;
+				keys_white_calculated++;
+			}
+			// black key bounding box
+			else {
+				bounding_box.x = (keys_white_calculated - 1) * key_white_width + key_black_offset;
+				bounding_box.y = 0;
+				bounding_box.width = key_black_width;
+				bounding_box.height = key_black_height;
+				keys_black_calculated++;
+			}
+
+			state.ui.midi_note_number_to_bounding_box[midi_note_number] = bounding_box;
+		}
+	};
+
+	helpers.ui.midi_note_number_to_bounding_box = function(midi_note_number) {
+		// return cached result
+		if (state.ui.midi_note_number_to_bounding_box !== null) {
+			if (midi_note_number in state.ui.midi_note_number_to_bounding_box) {
+				return state.ui.midi_note_number_to_bounding_box[midi_note_number];
+			}
+			else {
+				return null;
+			}
+		}
+		throw 'helpers.ui.note_number_to_bounding_box: called before helpers.ui.note_number_to_bounding_box_recalculate';
+	};
+
+	helpers.ui.note_number_display_range_set = function(lower, upper) {
+		state.ui.midi_note_number_display_lower = lower;
+		state.ui.midi_note_number_display_upper = upper;
+		helpers.ui.midi_note_number_to_bounding_box_recalculate();
+	};
+
+	helpers.ui.intersect_bounding_box = function(x, y, bounding_box) {
+		return (bounding_box.x <= x && x < bounding_box.x + bounding_box.width) && (bounding_box.y <= y && y < bounding_box.y + bounding_box.height);
 	};
 
 	/*
@@ -134,26 +217,67 @@
 			var browser_viewport_height = $(window).height();
 			canvas.width = browser_viewport_width;
 			canvas.height = browser_viewport_height;
+			state.ui.width_px = browser_viewport_width;
+			state.ui.height_px = browser_viewport_height;
+			helpers.ui.midi_note_number_to_bounding_box_recalculate();
 		};
 	};
 
+	var mouse_process_event = function (event) {
+		var mouse_x = event.clientX;
+		var mouse_y = event.clientY;
+		state.client.midi_note_number = null;
+
+		// try black keys
+		for (var midi_note_number = state.ui.midi_note_number_display_lower; midi_note_number <= state.ui.midi_note_number_display_upper; midi_note_number++) {
+			if (helpers.midi.note_number_key_white_is(midi_note_number)) {
+				continue;
+			}
+
+			var bb = helpers.ui.midi_note_number_to_bounding_box(midi_note_number);
+			if (helpers.ui.intersect_bounding_box(mouse_x, mouse_y, bb)) {
+				state.client.midi_note_number = midi_note_number;
+				return;
+			}
+		}
+
+		// try white keys
+		for (var midi_note_number = state.ui.midi_note_number_display_lower; midi_note_number <= state.ui.midi_note_number_display_upper; midi_note_number++) {
+			if (helpers.midi.note_number_key_black_is(midi_note_number)) {
+				continue;
+			}
+
+			var bb = helpers.ui.midi_note_number_to_bounding_box(midi_note_number);
+			if (helpers.ui.intersect_bounding_box(mouse_x, mouse_y, bb)) {
+				state.client.midi_note_number = midi_note_number;
+				return;
+			}
+		}
+	};
+
 	var callback_ui_canvas_mouse_move = function (event) {
-		ui_state.mouse_x = event.clientX;
-		ui_state.mouse_y = event.clientY;
+		mouse_process_event(event);
 	};
 
 	var callback_ui_canvas_mouse_down = function (event) {
-		ui_state.mouse_down = true;
+		mouse_process_event(event);
+		if (state.client.midi_note_number !== null) {
+			socket.send('on:' + String(state.client.midi_note_number) + ' ' + String(state.client.midi_note_velocity));
+		}
+		state.client.mouse_down = true;
 	};
 
 	var callback_ui_canvas_mouse_up = function (event) {
-		ui_state.mouse_down = false;
+		mouse_process_event(event);
+		if (state.client.midi_note_number !== null) {
+			socket.send('off:' + String(state.client.midi_note_number));
+		}
+		state.client.mouse_down = false;
 	};
 
 	var callback_ui_canvas_mouse_leave = function (event) {
-		ui_state.mouse_x = -1;
-		ui_state.mouse_y = -1;
-		ui_state.mouse_down = false;
+		state.client.midi_note_number = null;
+		state.client.mouse_down = false;
 	};
 
 	var callback_ui_canvas_animation = function (canvas) {
@@ -169,19 +293,17 @@
 		// draw debug square to show when we're not filling the canvas
 		canvas_ctx.fillStyle = 'rgb(255, 0, 255)';
 		canvas_ctx.fillRect(0, 0, canvas_width, canvas_height);
-		
+
 		// draw white keys
-		var key_outline = 2;
-		var key_white_width = Math.floor(canvas_width / 7);
-		for (var i = 0; i < 7; i++) {
-			var rect_x = i * key_white_width;
-			var rect_y = 0;
-			var rect_width = key_white_width;
-			var rect_height = canvas_height;
+		for (var midi_note_number = state.ui.midi_note_number_display_lower; midi_note_number <= state.ui.midi_note_number_display_upper; midi_note_number++) {
+			if (!helpers.midi.note_number_key_white_is(midi_note_number)) {
+				continue;
+			}
+			var bb = helpers.ui.midi_note_number_to_bounding_box(midi_note_number);
 			canvas_ctx.fillStyle = options.ui.key_white_outline;
-			canvas_ctx.fillRect(rect_x, rect_y, rect_width, rect_height);
-			if (helpers.ui.intersect_rect(ui_state.mouse_x, ui_state.mouse_y, rect_x, rect_y, rect_width, rect_height)) {
-				if (ui_state.mouse_down) {
+			canvas_ctx.fillRect(bb.x, bb.y, bb.width, bb.height);
+			if (state.client.midi_note_number === midi_note_number) {
+				if (state.client.mouse_down) {
 					canvas_ctx.fillStyle = options.ui.key_white_down_color;
 				}
 				else {
@@ -191,7 +313,31 @@
 			else {
 				canvas_ctx.fillStyle = options.ui.key_white_color;
 			}
-			canvas_ctx.fillRect(i * key_white_width + key_outline, key_outline, key_white_width - (key_outline * 2), canvas_height - (key_outline * 2));
+			var key_outline = Math.max(1, Math.floor(options.ui.key_spacing * bb.width));
+			canvas_ctx.fillRect(bb.x + key_outline, bb.y + key_outline, bb.width - (key_outline * 2), bb.height - (key_outline * 2));
+		}
+
+		// draw black keys
+		for (var midi_note_number = state.ui.midi_note_number_display_lower; midi_note_number <= state.ui.midi_note_number_display_upper; midi_note_number++) {
+			if (helpers.midi.note_number_key_white_is(midi_note_number)) {
+				continue;
+			}
+			var bb = helpers.ui.midi_note_number_to_bounding_box(midi_note_number);
+			canvas_ctx.fillStyle = options.ui.key_black_outline;
+			canvas_ctx.fillRect(bb.x, bb.y, bb.width, bb.height);
+			if (state.client.midi_note_number === midi_note_number) {
+				if (state.client.mouse_down) {
+					canvas_ctx.fillStyle = options.ui.key_black_down_color;
+				}
+				else {
+					canvas_ctx.fillStyle = options.ui.key_black_hover_color;
+				}
+			}
+			else {
+				canvas_ctx.fillStyle = options.ui.key_black_color;
+			}
+			var key_outline = Math.max(1, Math.floor(options.ui.key_spacing * bb.width));
+			canvas_ctx.fillRect(bb.x + key_outline, bb.y + key_outline, bb.width - (key_outline * 2), bb.height - (key_outline * 2));
 		}
 	};
 
@@ -211,6 +357,9 @@
 		$(canvas).on('mousedown', callback_ui_canvas_mouse_down);
 		$(canvas).on('mouseup', callback_ui_canvas_mouse_up);
 		$(canvas).on('mouseleave', callback_ui_canvas_mouse_leave);
+
+		// set initial display range
+		helpers.ui.note_number_display_range_set(48, 71);
 
 		// start animation
 		callback_ui_canvas_animation(canvas);
