@@ -1,6 +1,5 @@
 client:
-	ui helper for key bounding box (call from both mousedown/mouseup and animation callback)
-	draw black keys
+	zoom/scroll controls
 
 server:
 	everything
