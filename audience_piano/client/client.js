@@ -317,10 +317,11 @@
 
 			// redraw buffer if we need to
 			if (state.ui.canvas_buffer_dirty) {
+				console.log('redrawing buffer');
 				// resize buffer
 				canvas_buffer.width = canvas_width;
 				canvas_buffer.height = canvas_height;
-				var canvas_buffer_ctx = canvas.getContext('2d');
+				var canvas_buffer_ctx = canvas_buffer.getContext('2d');
 
 				// draw debug square to show when we're not filling the canvas
 				canvas_buffer_ctx.fillStyle = 'rgb(255, 0, 255)';
@@ -358,31 +359,27 @@
 
 			// fill in canvas from buffer
 			var canvas_ctx = canvas.getContext('2d');
-			canvas_ctx.clearRect(0, 0, canvas_width, canvas_height);
+			//canvas_ctx.clearRect(0, 0, canvas_width, canvas_height);
 			canvas_ctx.drawImage(canvas_buffer, 0, 0);
 
 			// highlight selected note
 			if (state.client.midi_note_number !== null) {
-				if (helpers.midi.note_number_key_white_is(state.client.midi_note_number)) {
-					if (state.client.mouse_down) {
-						canvas_ctx.fillStyle = options.ui.key_white_down_color;
-					}
-					else {
-						canvas_ctx.fillStyle = options.ui.key_white_hover_color;
-					}
+				var key_white_is = helpers.midi.note_number_key_white_is(state.client.midi_note_number);
+
+				// set fill color
+				if (key_white_is) {
+					canvas_ctx.fillStyle = state.client.mouse_down ? options.ui.key_white_down_color : options.ui.key_white_hover_color;
 				}
 				else {
-					if (state.client.mouse_down) {
-						canvas_ctx.fillStyle = options.ui.key_black_down_color;
-					}
-					else {
-						canvas_ctx.fillStyle = options.ui.key_black_hover_color;
-					}
+					canvas_ctx.fillStyle = state.client.mouse_down ? options.ui.key_black_down_color : options.ui.key_black_hover_color;
 				}
 
+				// fill
 				var bb = helpers.ui.midi_note_number_to_bounding_box(state.client.midi_note_number);
 				var key_outline = Math.max(1, Math.floor(options.ui.key_spacing * bb.width));
 				canvas_ctx.fillRect(bb.x + key_outline, bb.y + key_outline, bb.width - (key_outline * 2), bb.height - (key_outline * 2));
+
+				// redraw surrounding black keys
 			}
 		};
 	})();
