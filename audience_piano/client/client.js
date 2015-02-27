@@ -364,7 +364,8 @@
 
 			// highlight selected note
 			if (state.client.midi_note_number !== null) {
-				var key_white_is = helpers.midi.note_number_key_white_is(state.client.midi_note_number);
+				var midi_note_number = state.client.midi_note_number
+				var key_white_is = helpers.midi.note_number_key_white_is(midi_note_number);
 
 				// set fill color
 				if (key_white_is) {
@@ -375,11 +376,29 @@
 				}
 
 				// fill
-				var bb = helpers.ui.midi_note_number_to_bounding_box(state.client.midi_note_number);
+				var bb = helpers.ui.midi_note_number_to_bounding_box(midi_note_number);
 				var key_outline = Math.max(1, Math.floor(options.ui.key_spacing * bb.width));
 				canvas_ctx.fillRect(bb.x + key_outline, bb.y + key_outline, bb.width - (key_outline * 2), bb.height - (key_outline * 2));
 
 				// redraw surrounding black keys
+				if (key_white_is) {
+					var midi_note_number_adjacents = [midi_note_number - 1, midi_note_number + 1];
+					canvas_ctx.fillStyle = options.ui.key_black_color;
+					for (var i = 0; i < 2; i++) {
+						var midi_note_number_adjacent = midi_note_number_adjacents[i];
+						if (helpers.midi.note_number_key_white_is(midi_note_number_adjacent)) {
+							continue;
+						}
+						var bb = helpers.ui.midi_note_number_to_bounding_box(midi_note_number_adjacent);
+						if (bb !== null) {
+							canvas_ctx.fillStyle = options.ui.key_black_outline;
+							canvas_ctx.fillRect(bb.x, bb.y, bb.width, bb.height);
+							canvas_ctx.fillStyle = options.ui.key_black_color;
+							var key_outline = Math.max(1, Math.floor(options.ui.key_spacing * bb.width));
+							canvas_ctx.fillRect(bb.x + key_outline, bb.y + key_outline, bb.width - (key_outline * 2), bb.height - (key_outline * 2));
+						}
+					}
+				}
 			}
 		};
 	})();
