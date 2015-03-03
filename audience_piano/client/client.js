@@ -421,7 +421,7 @@
 		$(canvas).on('mouseleave', callback_ui_canvas_mouse_leave);
 
 		// set initial display range
-		helpers.ui.note_number_display_range_set(0, 23);
+		helpers.ui.note_number_display_range_set(0, 47);
 
 		// start animation
 		callback_ui_canvas_animation(canvas);

@@ -1,5 +1,6 @@
 client:
 	zoom/scroll controls
+	fingerprint thing
 
 server:
 	everything
