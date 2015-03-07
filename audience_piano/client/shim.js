@@ -17,4 +17,5 @@
 		var elem = document.createElement('canvas');
 		return !!(elem.getContext && elem.getContext('2d'));
 	})();
+	window.supports_touch_events = 'ontouchstart' in window || 'onmsgesturechange' in window;
 })();

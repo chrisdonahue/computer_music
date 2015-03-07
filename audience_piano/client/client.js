@@ -415,10 +415,15 @@
 		$(window).resize(callback_ui_window_resize(canvas));
 
 		// register mouse move callback
-		$(canvas).on('mousemove', callback_ui_canvas_mouse_move);
-		$(canvas).on('mousedown', callback_ui_canvas_mouse_down);
-		$(canvas).on('mouseup', callback_ui_canvas_mouse_up);
-		$(canvas).on('mouseleave', callback_ui_canvas_mouse_leave);
+		if (!window.supports_touch_events) {
+			$(canvas).on('mousemove', callback_ui_canvas_mouse_move);
+			$(canvas).on('mousedown', callback_ui_canvas_mouse_down);
+			$(canvas).on('mouseup', callback_ui_canvas_mouse_up);
+			$(canvas).on('mouseleave', callback_ui_canvas_mouse_leave);
+		}
+		else {
+			
+		}
 
 		// set initial display range
 		helpers.ui.note_number_display_range_set(0, 47);
