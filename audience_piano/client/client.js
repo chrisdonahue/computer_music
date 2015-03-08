@@ -19,8 +19,7 @@
 
 	var state = {
 		client: {
-			mouse_down: false,
-			midi_note_number: null,
+			midi_note_numbers: {},
 			midi_note_velocity: 127
 		},
 		ui: {
@@ -186,6 +185,69 @@
 		return (bounding_box.x <= x && x < bounding_box.x + bounding_box.width) && (bounding_box.y <= y && y < bounding_box.y + bounding_box.height);
 	};
 
+	helpers.ui.canvas_x_y_to_midi_note_number = function (x, y) {
+		// try black keys
+		for (var midi_note_number = state.ui.midi_note_number_display_lower; midi_note_number <= state.ui.midi_note_number_display_upper; midi_note_number++) {
+			if (helpers.midi.note_number_key_white_is(midi_note_number)) {
+				continue;
+			}
+
+			var bb = helpers.ui.midi_note_number_to_bounding_box(midi_note_number);
+			if (helpers.ui.intersect_bounding_box(x, y, bb)) {
+				return midi_note_number;
+			}
+		}
+
+		// try white keys
+		for (var midi_note_number = state.ui.midi_note_number_display_lower; midi_note_number <= state.ui.midi_note_number_display_upper; midi_note_number++) {
+			if (helpers.midi.note_number_key_black_is(midi_note_number)) {
+				continue;
+			}
+
+			var bb = helpers.ui.midi_note_number_to_bounding_box(midi_note_number);
+			if (helpers.ui.intersect_bounding_box(x, y, bb)) {
+				return midi_note_number;
+			}
+		}
+
+		// no note pressed (this shouldn't happen)
+		return null;
+	};
+
+	// client helpers
+	helpers.client = {};
+
+	helpers.client.midi_note_on = function (midi_note_number) {
+		var midi_note_numbers = state.client.midi_note_numbers;
+		if (!(midi_note_number in midi_note_numbers)) {
+			midi_note_numbers[midi_note_number] = true;
+			socket.send('on:' + String(midi_note_number) + ' ' + String(state.client.midi_note_velocity));
+		}
+	};
+
+	helpers.client.midi_note_off = function (midi_note_number) {
+		var midi_note_numbers = state.client.midi_note_numbers;
+		if (midi_note_number in midi_note_numbers) {
+			delete midi_note_numbers[midi_note_number];
+			socket.send('off:' + String(midi_note_number));
+		}
+	};
+
+	helpers.client.midi_note_off_all = function () {
+		for (midi_note_number in state.client.midi_note_numbers) {
+			helpers.client.midi_note_off(midi_note_number);
+		}
+	};
+
+	helpers.client.midi_note_off_all_except = function (midi_note_number_exception) {
+		for (midi_note_number in state.client.midi_note_numbers) {
+			// have to use != as opposed to !== because midi note number keys are stored as strings
+			if (midi_note_number != midi_note_number_exception) {
+				helpers.client.midi_note_off(midi_note_number);
+			}
+		}
+	};
+
 	/*
 		socket
 	*/
@@ -243,65 +305,24 @@
 		};
 	};
 
-	var mouse_process_event = function (event) {
-		var mouse_x = event.clientX;
-		var mouse_y = event.clientY;
-		state.client.midi_note_number = null;
-
-		// try black keys
-		for (var midi_note_number = state.ui.midi_note_number_display_lower; midi_note_number <= state.ui.midi_note_number_display_upper; midi_note_number++) {
-			if (helpers.midi.note_number_key_white_is(midi_note_number)) {
-				continue;
-			}
-
-			var bb = helpers.ui.midi_note_number_to_bounding_box(midi_note_number);
-			if (helpers.ui.intersect_bounding_box(mouse_x, mouse_y, bb)) {
-				state.client.midi_note_number = midi_note_number;
-				return;
-			}
-		}
-
-		// try white keys
-		for (var midi_note_number = state.ui.midi_note_number_display_lower; midi_note_number <= state.ui.midi_note_number_display_upper; midi_note_number++) {
-			if (helpers.midi.note_number_key_black_is(midi_note_number)) {
-				continue;
-			}
-
-			var bb = helpers.ui.midi_note_number_to_bounding_box(midi_note_number);
-			if (helpers.ui.intersect_bounding_box(mouse_x, mouse_y, bb)) {
-				state.client.midi_note_number = midi_note_number;
-				return;
-			}
-		}
-	};
-
 	var callback_ui_canvas_mouse_move = function (event) {
-		mouse_process_event(event);
+		var midi_note_number = helpers.ui.canvas_x_y_to_midi_note_number(event.clientX, event.clientY);
+		helpers.client.midi_note_off_all_except(midi_note_number);
+		helpers.client.midi_note_on(midi_note_number);
 	};
 
 	var callback_ui_canvas_mouse_down = function (event) {
-		mouse_process_event(event);
-		state.client.mouse_down = true;
-		if (state.client.midi_note_number !== null) {
-			socket.send('on:' + String(state.client.midi_note_number) + ' ' + String(state.client.midi_note_velocity));
-		}
+		var midi_note_number = helpers.ui.canvas_x_y_to_midi_note_number(event.clientX, event.clientY);
+		helpers.client.midi_note_on(midi_note_number);
 	};
 
 	var callback_ui_canvas_mouse_up = function (event) {
-		mouse_process_event(event);
-		if (state.client.midi_note_number !== null && state.client.mouse_down === true) {
-			socket.send('off:' + String(state.client.midi_note_number));
-		}
-		state.client.mouse_down = false;
-		state.client.midi_note_number = null;
+		helpers.client.midi_note_off_all();
 	};
 
 	var callback_ui_canvas_mouse_leave = function (event) {
-		if (state.client.midi_note_number !== null && state.client.mouse_down === true) {
-			socket.send('off:' + String(state.client.midi_note_number));
-		}
-		state.client.mouse_down = false;
-		state.client.midi_note_number = null;
+		var midi_note_number = helpers.ui.canvas_x_y_to_midi_note_number(event.clientX, event.clientY);
+		helpers.client.midi_note_off_all();
 	};
 
 	var callback_ui_canvas_animation = (function () {
@@ -363,16 +384,16 @@
 			canvas_ctx.drawImage(canvas_buffer, 0, 0);
 
 			// highlight selected note
-			if (state.client.midi_note_number !== null) {
-				var midi_note_number = state.client.midi_note_number
+			for (var midi_note_number_string in state.client.midi_note_numbers) {
+				var midi_note_number = Number(midi_note_number_string);
 				var key_white_is = helpers.midi.note_number_key_white_is(midi_note_number);
 
 				// set fill color
 				if (key_white_is) {
-					canvas_ctx.fillStyle = state.client.mouse_down ? options.ui.key_white_down_color : options.ui.key_white_hover_color;
+					canvas_ctx.fillStyle = options.ui.key_white_down_color;
 				}
 				else {
-					canvas_ctx.fillStyle = state.client.mouse_down ? options.ui.key_black_down_color : options.ui.key_black_hover_color;
+					canvas_ctx.fillStyle = options.ui.key_black_down_color;
 				}
 
 				// fill
@@ -416,13 +437,17 @@
 
 		// register mouse move callback
 		if (!window.supports_touch_events) {
-			$(canvas).on('mousemove', callback_ui_canvas_mouse_move);
+			//$(canvas).on('mousemove', callback_ui_canvas_mouse_move);
 			$(canvas).on('mousedown', callback_ui_canvas_mouse_down);
 			$(canvas).on('mouseup', callback_ui_canvas_mouse_up);
 			$(canvas).on('mouseleave', callback_ui_canvas_mouse_leave);
 		}
 		else {
-			
+			$(canvas).on('touchstart', callback_ui_canvas_touch_start);
+			$(canvas).on('touchend', callback_ui_canvas_touch_start);
+			$(canvas).on('touchcancel', callback_ui_canvas_touch_start);
+			$(canvas).on('touchleave', callback_ui_canvas_touch_start);
+			$(canvas).on('touchmove', callback_ui_canvas_touch_start);	
 		}
 
 		// set initial display range
