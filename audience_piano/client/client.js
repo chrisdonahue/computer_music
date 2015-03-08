@@ -23,8 +23,10 @@
 			midi_note_velocity: 127
 		},
 		ui: {
-			width_px: null,
-			height_px: null,
+			canvas_left_px: null,
+			canvas_top_px: null,
+			canvas_width_px: null,
+			canvas_height_px: null,
 			canvas_buffer_dirty: false,
 			midi_note_number_display_lower: null,
 			midi_note_number_display_upper: null,
@@ -63,7 +65,6 @@
 		return _midi_note_names[remainder][0] + String(dividend);
 	};
 
-	
 	helpers.midi.note_number_key_white_is = (function() {
 		var midi_note_number_key_white_is_cache = {};
 		return function(midi_note_number) {
@@ -112,10 +113,10 @@
 		}
 
 		// create bounding boxes
-		var key_white_width = Math.floor(state.ui.width_px / keys_white_total);
-		var canvas_width_remainder = Math.floor(state.ui.width_px % keys_white_total);
+		var key_white_width = Math.floor(state.ui.canvas_width_px / keys_white_total);
+		var canvas_width_remainder = Math.floor(state.ui.canvas_width_px % keys_white_total);
 		var key_white_width_extra_every = Math.floor(keys_white_total / canvas_width_remainder);
-		var key_white_height = state.ui.height_px;
+		var key_white_height = state.ui.canvas_height_px;
 		var key_black_width = key_white_width * 0.7;
 		var key_black_height = key_white_height * 0.6;
 		var key_black_offset = key_white_width * 0.35;
@@ -185,7 +186,24 @@
 		return (bounding_box.x <= x && x < bounding_box.x + bounding_box.width) && (bounding_box.y <= y && y < bounding_box.y + bounding_box.height);
 	};
 
-	helpers.ui.canvas_x_y_to_midi_note_number = function (x, y) {
+	helpers.ui.mouse_event_to_canvas_pos = function(event) {
+		return {
+			x: event.clientX - state.ui.canvas_left_px,
+			y: event.clientY - state.ui.canvas_top_px
+		};
+	};
+
+	helpers.ui.touch_event_to_canvas_pos = function(event) {
+		return {
+			x: event.targetTouches[0].clientX - state.ui.canvas_left_px,
+			y: event.targetTouches[0].clientY - state.ui.canvas_top_px
+		};
+	};
+
+	helpers.ui.canvas_pos_to_midi_note_number = function (pos) {
+		var x = pos.x;
+		var y = pos.y;
+
 		// try black keys
 		for (var midi_note_number = state.ui.midi_note_number_display_lower; midi_note_number <= state.ui.midi_note_number_display_upper; midi_note_number++) {
 			if (helpers.midi.note_number_key_white_is(midi_note_number)) {
@@ -299,20 +317,22 @@
 			var browser_viewport_height = $(window).height();
 			canvas.width = browser_viewport_width;
 			canvas.height = browser_viewport_height;
-			state.ui.width_px = browser_viewport_width;
-			state.ui.height_px = browser_viewport_height;
+			state.ui.canvas_left_px = canvas.getBoundingClientRect().left;
+			state.ui.canvas_top_px = canvas.getBoundingClientRect().top;
+			state.ui.canvas_width_px = browser_viewport_width;
+			state.ui.canvas_height_px = browser_viewport_height;
 			helpers.ui.midi_note_number_to_bounding_box_recalculate();
 		};
 	};
 
 	var callback_ui_canvas_mouse_move = function (event) {
-		var midi_note_number = helpers.ui.canvas_x_y_to_midi_note_number(event.clientX, event.clientY);
+		var midi_note_number = helpers.ui.canvas_pos_to_midi_note_number(helpers.ui.mouse_event_to_canvas_pos(event));
 		helpers.client.midi_note_off_all_except(midi_note_number);
 		helpers.client.midi_note_on(midi_note_number);
 	};
 
 	var callback_ui_canvas_mouse_down = function (event) {
-		var midi_note_number = helpers.ui.canvas_x_y_to_midi_note_number(event.clientX, event.clientY);
+		var midi_note_number = helpers.ui.canvas_pos_to_midi_note_number(helpers.ui.mouse_event_to_canvas_pos(event));
 		helpers.client.midi_note_on(midi_note_number);
 	};
 
@@ -321,8 +341,27 @@
 	};
 
 	var callback_ui_canvas_mouse_leave = function (event) {
-		var midi_note_number = helpers.ui.canvas_x_y_to_midi_note_number(event.clientX, event.clientY);
 		helpers.client.midi_note_off_all();
+	};
+
+	var callback_ui_canvas_touch_start = function (event) {
+		var midi_note_number = helpers.ui.canvas_pos_to_midi_note_number(helpers.ui.touch_event_to_canvas_pos(event));
+		helpers.client.midi_note_on(midi_note_number);
+	};
+
+	var callback_ui_canvas_touch_move = function (event) {
+	};
+
+	var callback_ui_canvas_touch_end = function (event) {
+		helpers.client.midi_note_off_all();
+	};
+
+	var callback_ui_canvas_touch_cancel = function (event) {
+
+	};
+
+	var callback_ui_canvas_touch_leave = function (event) {
+
 	};
 
 	var callback_ui_canvas_animation = (function () {
@@ -333,12 +372,11 @@
 			});
 			
 			// get canvas dimensions
-			var canvas_width = state.ui.width_px;
-			var canvas_height = state.ui.height_px;
+			var canvas_width = state.ui.canvas_width_px;
+			var canvas_height = state.ui.canvas_height_px;
 
 			// redraw buffer if we need to
 			if (state.ui.canvas_buffer_dirty) {
-				console.log('redrawing buffer');
 				// resize buffer
 				canvas_buffer.width = canvas_width;
 				canvas_buffer.height = canvas_height;
@@ -444,10 +482,10 @@
 		}
 		else {
 			$(canvas).on('touchstart', callback_ui_canvas_touch_start);
+			$(canvas).on('touchmove', callback_ui_canvas_touch_start);
 			$(canvas).on('touchend', callback_ui_canvas_touch_start);
 			$(canvas).on('touchcancel', callback_ui_canvas_touch_start);
 			$(canvas).on('touchleave', callback_ui_canvas_touch_start);
-			$(canvas).on('touchmove', callback_ui_canvas_touch_start);	
 		}
 
 		// set initial display range
