@@ -12,6 +12,10 @@
 		alert('Sorry, HTML5 Canvas not supported on this browser.');
 		throw 'HTML5 Canvas not supported on this browser';
 	}
+	if (!window.supports_touch_events) {
+		alert('Sorry, TouchEvents API not supported on this browser.');
+		throw 'TouchEvents API not supported on this browser';
+	}
 
 	/*
 		state
@@ -19,8 +23,10 @@
 
 	var state = {
 		client: {
-			midi_note_numbers: {},
-			midi_note_velocity: 127
+			mouse_midi_note_number: null,
+			midi_note_number_to_touch_id: {},
+			touch_id_to_midi_note_number: {},
+			midi_note_velocity: 100
 		},
 		ui: {
 			canvas_left_px: null,
@@ -193,10 +199,10 @@
 		};
 	};
 
-	helpers.ui.touch_event_to_canvas_pos = function(event) {
+	helpers.ui.touch_to_canvas_pos = function(touch) {
 		return {
-			x: event.targetTouches[0].clientX - state.ui.canvas_left_px,
-			y: event.targetTouches[0].clientY - state.ui.canvas_top_px
+			x: touch.clientX - state.ui.canvas_left_px,
+			y: touch.clientY - state.ui.canvas_top_px
 		};
 	};
 
@@ -235,35 +241,12 @@
 	// client helpers
 	helpers.client = {};
 
-	helpers.client.midi_note_on = function (midi_note_number) {
-		var midi_note_numbers = state.client.midi_note_numbers;
-		if (!(midi_note_number in midi_note_numbers)) {
-			midi_note_numbers[midi_note_number] = true;
-			socket.send('on:' + String(midi_note_number) + ' ' + String(state.client.midi_note_velocity));
-		}
+	helpers.client.midi_note_number_on = function (midi_note_number) {
+		socket.send('1.' + String(midi_note_number) + '.' + String(state.client.midi_note_velocity));
 	};
 
-	helpers.client.midi_note_off = function (midi_note_number) {
-		var midi_note_numbers = state.client.midi_note_numbers;
-		if (midi_note_number in midi_note_numbers) {
-			delete midi_note_numbers[midi_note_number];
-			socket.send('off:' + String(midi_note_number));
-		}
-	};
-
-	helpers.client.midi_note_off_all = function () {
-		for (midi_note_number in state.client.midi_note_numbers) {
-			helpers.client.midi_note_off(midi_note_number);
-		}
-	};
-
-	helpers.client.midi_note_off_all_except = function (midi_note_number_exception) {
-		for (midi_note_number in state.client.midi_note_numbers) {
-			// have to use != as opposed to !== because midi note number keys are stored as strings
-			if (midi_note_number != midi_note_number_exception) {
-				helpers.client.midi_note_off(midi_note_number);
-			}
-		}
+	helpers.client.midi_note_number_off = function (midi_note_number) {
+		socket.send('0.' + String(midi_note_number));
 	};
 
 	/*
@@ -315,12 +298,13 @@
 		return function (event) {
 			var browser_viewport_width = $(window).width();
 			var browser_viewport_height = $(window).height();
+			var canvas_not_height = $('div#canvas_not').height();
 			canvas.width = browser_viewport_width;
-			canvas.height = browser_viewport_height;
+			canvas.height = browser_viewport_height - canvas_not_height;
 			state.ui.canvas_left_px = canvas.getBoundingClientRect().left;
 			state.ui.canvas_top_px = canvas.getBoundingClientRect().top;
 			state.ui.canvas_width_px = browser_viewport_width;
-			state.ui.canvas_height_px = browser_viewport_height;
+			state.ui.canvas_height_px = canvas.height;
 			helpers.ui.midi_note_number_to_bounding_box_recalculate();
 		};
 	};
@@ -344,24 +328,100 @@
 		helpers.client.midi_note_off_all();
 	};
 
-	var callback_ui_canvas_touch_start = function (event) {
-		var midi_note_number = helpers.ui.canvas_pos_to_midi_note_number(helpers.ui.touch_event_to_canvas_pos(event));
-		helpers.client.midi_note_on(midi_note_number);
+	var callback_ui_canvas_touch_shim = function (callback) {
+		return function(event) {
+			if (!('targetTouches' in event)) {
+				event = event.originalEvent;
+			}
+			callback(event);
+		};
 	};
 
-	var callback_ui_canvas_touch_move = function (event) {
+	var callback_ui_canvas_touch_start = callback_ui_canvas_touch_shim(function (event) {
+		for (var i = 0; i < event.changedTouches.length; i++) {
+			var touch = event.changedTouches[i];
+			var touch_id = touch.identifier;
+			var midi_note_number = helpers.ui.canvas_pos_to_midi_note_number(helpers.ui.touch_to_canvas_pos(touch));
+			if (!(midi_note_number in state.client.midi_note_number_to_touch_id)) {
+				helpers.client.midi_note_number_on(midi_note_number);
+				state.client.midi_note_number_to_touch_id[midi_note_number] = touch_id;
+				state.client.touch_id_to_midi_note_number[touch_id] = midi_note_number;
+			}
+		}
+	});
+
+	var callback_ui_canvas_touch_move = callback_ui_canvas_touch_shim(function (event) {
+		for (var i = 0; i < event.changedTouches.length; i++) {
+			var touch = event.changedTouches[i];
+			var touch_id = touch.identifier;
+			var midi_note_number = helpers.ui.canvas_pos_to_midi_note_number(helpers.ui.touch_to_canvas_pos(touch));
+			var touch_id = event.changedTouches[i].identifier;
+			if (touch_id in state.client.touch_id_to_midi_note_number) {
+				var midi_note_number_old = state.client.touch_id_to_midi_note_number[touch_id];
+				if (midi_note_number_old !== midi_note_number) {
+					helpers.client.midi_note_number_off(midi_note_number);
+					delete state.client.midi_note_number_to_touch_id[midi_note_number_old];
+					delete state.client.touch_id_to_midi_note_number[touch_id];
+					helpers.client.midi_note_number_on(midi_note_number);
+					state.client.midi_note_number_to_touch_id[midi_note_number] = touch_id;
+					state.client.touch_id_to_midi_note_number[touch_id] = midi_note_number;
+				}
+			}
+		}
+	});
+
+	var callback_ui_canvas_touch_end = callback_ui_canvas_touch_shim(function (event) {
+		for (var i = 0; i < event.changedTouches.length; i++) {
+			var touch_id = event.changedTouches[i].identifier;
+			if (touch_id in state.client.touch_id_to_midi_note_number) {
+				var midi_note_number = state.client.touch_id_to_midi_note_number[touch_id];
+				helpers.client.midi_note_number_off(midi_note_number);
+				delete state.client.midi_note_number_to_touch_id[midi_note_number];
+				delete state.client.touch_id_to_midi_note_number[touch_id];
+			}
+		}
+	});
+
+	var callback_ui_canvas_touch_cancel = callback_ui_canvas_touch_shim(function (event) {
+		for (var i = 0; i < event.changedTouches.length; i++) {
+			var touch_id = event.changedTouches[i].identifier;
+			if (touch_id in state.client.touch_id_to_midi_note_number) {
+				var midi_note_number = state.client.touch_id_to_midi_note_number[touch_id];
+				helpers.client.midi_note_number_off(midi_note_number);
+				delete state.client.midi_note_number_to_touch_id[midi_note_number];
+				delete state.client.touch_id_to_midi_note_number[touch_id];
+			}
+		}
+	});
+
+	var callback_ui_canvas_touch_leave = callback_ui_canvas_touch_shim(function (event) {
+		for (var i = 0; i < event.changedTouches.length; i++) {
+			var touch_id = event.changedTouches[i].identifier;
+			if (touch_id in state.client.touch_id_to_midi_note_number) {
+				var midi_note_number = state.client.touch_id_to_midi_note_number[touch_id];
+				helpers.client.midi_note_number_off(midi_note_number);
+				delete state.client.midi_note_number_to_touch_id[midi_note_number];
+				delete state.client.touch_id_to_midi_note_number[touch_id];
+			}
+		}
+	});
+
+	var callback_ui_midi_note_velocity_change = function(event) {
+		var $el = $(this);
+		var value_new = Number($el.val());
+		state.client.midi_note_velocity = Math.min(value_new, 127);
 	};
 
-	var callback_ui_canvas_touch_end = function (event) {
-		helpers.client.midi_note_off_all();
+	var callback_ui_zoom_out_click = function(event) {
+		console.log(event);
 	};
 
-	var callback_ui_canvas_touch_cancel = function (event) {
-
+	var callback_ui_zoom_in_click = function(event) {
+		console.log(event);
 	};
 
-	var callback_ui_canvas_touch_leave = function (event) {
-
+	var callback_ui_scroll_change = function(event) {
+		console.log(event);
 	};
 
 	var callback_ui_canvas_animation = (function () {
@@ -422,7 +482,7 @@
 			canvas_ctx.drawImage(canvas_buffer, 0, 0);
 
 			// highlight selected note
-			for (var midi_note_number_string in state.client.midi_note_numbers) {
+			for (var midi_note_number_string in state.client.midi_note_number_to_touch_id) {
 				var midi_note_number = Number(midi_note_number_string);
 				var key_white_is = helpers.midi.note_number_key_white_is(midi_note_number);
 
@@ -467,13 +527,26 @@
 		$('body').css({'overflow': 'hidden'});
 		
 		// retrieve canvas DOM
-		var canvas = $('canvas#piano').get(0);
+		var canvas = $('div#canvas canvas#piano').get(0);
 		
 		// register window resize callback
 		callback_ui_window_resize(canvas)();
 		$(window).resize(callback_ui_window_resize(canvas));
 
-		// register mouse move callback
+		// resize text
+		$('span#prompt').quickfit()
+
+		// register velocity slider callback
+		var $slider_midi_note_velocity = $('div#controls input#midi_note_velocity');
+		$slider_midi_note_velocity.val(options.client.midi_note_velocity_initial);
+		$slider_midi_note_velocity.on('change', callback_ui_midi_note_velocity_change);
+
+		// register ui control callbacks
+		$('div#navigation input#zoom_out').on('click', callback_ui_zoom_out_click);
+		$('div#navigation input#zoom_in').on('click', callback_ui_zoom_in_click);
+		$('div#navigation input#scroll').on('change', callback_ui_scroll_change);
+
+		// register canvas callback
 		if (!window.supports_touch_events) {
 			//$(canvas).on('mousemove', callback_ui_canvas_mouse_move);
 			$(canvas).on('mousedown', callback_ui_canvas_mouse_down);
@@ -482,14 +555,14 @@
 		}
 		else {
 			$(canvas).on('touchstart', callback_ui_canvas_touch_start);
-			$(canvas).on('touchmove', callback_ui_canvas_touch_start);
-			$(canvas).on('touchend', callback_ui_canvas_touch_start);
-			$(canvas).on('touchcancel', callback_ui_canvas_touch_start);
-			$(canvas).on('touchleave', callback_ui_canvas_touch_start);
+			$(canvas).on('touchmove', callback_ui_canvas_touch_move);
+			$(canvas).on('touchend', callback_ui_canvas_touch_end);
+			$(canvas).on('touchcancel', callback_ui_canvas_touch_cancel);
+			$(canvas).on('touchleave', callback_ui_canvas_touch_leave);
 		}
 
 		// set initial display range
-		helpers.ui.note_number_display_range_set(0, 47);
+		helpers.ui.note_number_display_range_set(options.ui.midi_note_number_display_lower_initial, options.ui.midi_note_number_display_upper_initial);
 
 		// start animation
 		callback_ui_canvas_animation(canvas);
