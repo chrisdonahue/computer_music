@@ -1,36 +1,30 @@
 /*
   ==============================================================================
 
-    This file was auto-generated!
+    MainComponent.cpp
+    Created: 8 Mar 2015 7:18:34pm
+    Author:  Chris
 
   ==============================================================================
 */
 
+#include "../JuceLibraryCode/JuceHeader.h"
 #include "MainComponent.h"
 
-
 //==============================================================================
-MainContentComponent::MainContentComponent()
-{
-    setSize (600, 400);
-}
-
-MainContentComponent::~MainContentComponent()
+MainComponent::MainComponent()
 {
 }
 
-void MainContentComponent::paint (Graphics& g)
+MainComponent::~MainComponent()
 {
-    g.fillAll (Colour (0xff001F36));
-
-    g.setFont (Font (16.0f));
-    g.setColour (Colours::white);
-    g.drawText ("Hello World!", getLocalBounds(), Justification::centred, true);
 }
 
-void MainContentComponent::resized()
+void MainComponent::paint (Graphics& g)
 {
-    // This is called when the MainContentComponent is resized.
-    // If you add any child components, this is where you should
-    // update their positions.
+	g;
+}
+
+void MainComponent::resized() 
+{
 }

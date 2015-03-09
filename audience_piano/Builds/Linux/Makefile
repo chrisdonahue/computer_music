@@ -51,12 +51,15 @@ ifeq ($(CONFIG),Release)
 endif
 
 OBJECTS := \
-  $(OBJDIR)/MainComponent_a6ffb4a5.o \
   $(OBJDIR)/Main_90ebc5c2.o \
+  $(OBJDIR)/MainComponent_a6ffb4a5.o \
+  $(OBJDIR)/MIDISelectorComponent_f1c4cbbe.o \
+  $(OBJDIR)/GUIComponent_244dc18b.o \
   $(OBJDIR)/juce_audio_basics_b230a8bc.o \
   $(OBJDIR)/juce_audio_devices_6e54be7a.o \
   $(OBJDIR)/juce_audio_formats_9cd6081a.o \
   $(OBJDIR)/juce_audio_processors_563f0674.o \
+  $(OBJDIR)/juce_audio_utils_360ba33a.o \
   $(OBJDIR)/juce_core_28ba299e.o \
   $(OBJDIR)/juce_cryptography_b3b5abf8.o \
   $(OBJDIR)/juce_data_structures_2a02f2da.o \
@@ -84,14 +87,24 @@ strip:
 	@echo Stripping audience_piano
 	-@strip --strip-unneeded $(OUTDIR)/$(TARGET)
 
+$(OBJDIR)/Main_90ebc5c2.o: ../../Source/Main.cpp
+	-@mkdir -p $(OBJDIR)
+	@echo "Compiling Main.cpp"
+	@$(CXX) $(CXXFLAGS) -o "$@" -c "$<"
+
 $(OBJDIR)/MainComponent_a6ffb4a5.o: ../../Source/MainComponent.cpp
 	-@mkdir -p $(OBJDIR)
 	@echo "Compiling MainComponent.cpp"
 	@$(CXX) $(CXXFLAGS) -o "$@" -c "$<"
 
-$(OBJDIR)/Main_90ebc5c2.o: ../../Source/Main.cpp
+$(OBJDIR)/MIDISelectorComponent_f1c4cbbe.o: ../../Source/MIDISelectorComponent.cpp
 	-@mkdir -p $(OBJDIR)
-	@echo "Compiling Main.cpp"
+	@echo "Compiling MIDISelectorComponent.cpp"
+	@$(CXX) $(CXXFLAGS) -o "$@" -c "$<"
+
+$(OBJDIR)/GUIComponent_244dc18b.o: ../../Source/GUIComponent.cpp
+	-@mkdir -p $(OBJDIR)
+	@echo "Compiling GUIComponent.cpp"
 	@$(CXX) $(CXXFLAGS) -o "$@" -c "$<"
 
 $(OBJDIR)/juce_audio_basics_b230a8bc.o: ../../../../JUCE/modules/juce_audio_basics/juce_audio_basics.cpp
@@ -112,6 +125,11 @@ $(OBJDIR)/juce_audio_formats_9cd6081a.o: ../../../../JUCE/modules/juce_audio_for
 $(OBJDIR)/juce_audio_processors_563f0674.o: ../../../../JUCE/modules/juce_audio_processors/juce_audio_processors.cpp
 	-@mkdir -p $(OBJDIR)
 	@echo "Compiling juce_audio_processors.cpp"
+	@$(CXX) $(CXXFLAGS) -o "$@" -c "$<"
+
+$(OBJDIR)/juce_audio_utils_360ba33a.o: ../../../../JUCE/modules/juce_audio_utils/juce_audio_utils.cpp
+	-@mkdir -p $(OBJDIR)
+	@echo "Compiling juce_audio_utils.cpp"
 	@$(CXX) $(CXXFLAGS) -o "$@" -c "$<"
 
 $(OBJDIR)/juce_core_28ba299e.o: ../../../../JUCE/modules/juce_core/juce_core.cpp

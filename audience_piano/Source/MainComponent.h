@@ -1,7 +1,9 @@
 /*
   ==============================================================================
 
-    This file was auto-generated!
+    MainComponent.h
+    Created: 8 Mar 2015 7:18:34pm
+    Author:  Chris
 
   ==============================================================================
 */
@@ -11,25 +13,22 @@
 
 #include "../JuceLibraryCode/JuceHeader.h"
 
+#include "MidiSelectorComponent.h"
 
 //==============================================================================
 /*
-    This component lives inside our window, and this is where you should put all
-    your controls and content.
 */
-class MainContentComponent   : public Component
+class MainComponent    : public Component
 {
 public:
-    //==============================================================================
-    MainContentComponent();
-    ~MainContentComponent();
+    MainComponent();
+    ~MainComponent();
 
     void paint (Graphics&);
     void resized();
 
 private:
-    //==============================================================================
-    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (MainContentComponent)
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (MainComponent)
 };
 
 

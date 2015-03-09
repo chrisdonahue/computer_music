@@ -27,8 +27,9 @@ public:
     void initialise (const String& commandLine) override
     {
         // This method is where you should put your application's initialisation code..
+		commandLine;
 
-        mainWindow = new MainWindow (getApplicationName());
+        mainWindow = new MainWindow (getApplicationName(), adm);
     }
 
     void shutdown() override
@@ -48,6 +49,7 @@ public:
 
     void anotherInstanceStarted (const String& commandLine) override
     {
+		commandLine;
         // When another instance of the app is launched while this one is running,
         // this method is invoked, and the commandLine parameter tells you what
         // the other instance's command-line arguments were.
@@ -61,12 +63,12 @@ public:
     class MainWindow    : public DocumentWindow
     {
     public:
-        MainWindow (String name)  : DocumentWindow (name,
-                                                    Colours::lightgrey,
-                                                    DocumentWindow::allButtons)
+        MainWindow (String name, AudioDeviceManager& adm) :
+			adm(adm),
+			DocumentWindow (name, Colours::lightgrey, DocumentWindow::allButtons)
         {
             setUsingNativeTitleBar (true);
-            setContentOwned (new MainContentComponent(), true);
+            setContentOwned (new MIDISelectorComponent(adm), true);
 
             centreWithSize (getWidth(), getHeight());
             setVisible (true);
@@ -88,11 +90,14 @@ public:
         */
 
     private:
-        JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (MainWindow)
+		AudioDeviceManager& adm;
+
+		JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(MainWindow)
     };
 
 private:
     ScopedPointer<MainWindow> mainWindow;
+	AudioDeviceManager adm;
 };
 
 //==============================================================================

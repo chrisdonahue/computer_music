@@ -5,10 +5,17 @@
               jucerVersion="3.1.1">
   <MAINGROUP id="gXnr19" name="audience_piano">
     <GROUP id="{C4882554-B955-B807-53FC-2689DFE6FFF4}" name="Source">
-      <FILE id="Zbc16s" name="MainComponent.cpp" compile="1" resource="0"
-            file="Source/MainComponent.cpp"/>
-      <FILE id="eLNEJn" name="MainComponent.h" compile="0" resource="0" file="Source/MainComponent.h"/>
       <FILE id="PRpDBm" name="Main.cpp" compile="1" resource="0" file="Source/Main.cpp"/>
+      <FILE id="GHSnna" name="MainComponent.cpp" compile="1" resource="0"
+            file="Source/MainComponent.cpp"/>
+      <FILE id="CJN3D6" name="MainComponent.h" compile="0" resource="0" file="Source/MainComponent.h"/>
+      <FILE id="IpkRnk" name="MIDISelectorComponent.cpp" compile="1" resource="0"
+            file="Source/MIDISelectorComponent.cpp"/>
+      <FILE id="La8epa" name="MIDISelectorComponent.h" compile="0" resource="0"
+            file="Source/MIDISelectorComponent.h"/>
+      <FILE id="rAzds7" name="GUIComponent.cpp" compile="1" resource="0"
+            file="Source/GUIComponent.cpp"/>
+      <FILE id="BKK9RJ" name="GUIComponent.h" compile="0" resource="0" file="Source/GUIComponent.h"/>
     </GROUP>
   </MAINGROUP>
   <EXPORTFORMATS>
@@ -33,6 +40,7 @@
         <MODULEPATH id="juce_audio_devices" path="../../JUCE/modules"/>
         <MODULEPATH id="juce_audio_formats" path="../../JUCE/modules"/>
         <MODULEPATH id="juce_audio_processors" path="../../JUCE/modules"/>
+        <MODULEPATH id="juce_audio_utils" path="../../JUCE/modules"/>
       </MODULEPATHS>
     </VS2013>
     <VS2012 targetFolder="Builds/VisualStudio2012">
@@ -56,6 +64,7 @@
         <MODULEPATH id="juce_audio_devices" path="../../JUCE/modules"/>
         <MODULEPATH id="juce_audio_formats" path="../../JUCE/modules"/>
         <MODULEPATH id="juce_audio_processors" path="../../JUCE/modules"/>
+        <MODULEPATH id="juce_audio_utils" path="../../JUCE/modules"/>
       </MODULEPATHS>
     </VS2012>
     <LINUX_MAKE targetFolder="Builds/Linux">
@@ -79,6 +88,7 @@
         <MODULEPATH id="juce_audio_devices" path="../../JUCE/modules"/>
         <MODULEPATH id="juce_audio_formats" path="../../JUCE/modules"/>
         <MODULEPATH id="juce_audio_processors" path="../../JUCE/modules"/>
+        <MODULEPATH id="juce_audio_utils" path="../../JUCE/modules"/>
       </MODULEPATHS>
     </LINUX_MAKE>
   </EXPORTFORMATS>
@@ -87,6 +97,7 @@
     <MODULES id="juce_audio_devices" showAllCode="1" useLocalCopy="0"/>
     <MODULES id="juce_audio_formats" showAllCode="1" useLocalCopy="0"/>
     <MODULES id="juce_audio_processors" showAllCode="1" useLocalCopy="0"/>
+    <MODULES id="juce_audio_utils" showAllCode="1" useLocalCopy="0"/>
     <MODULES id="juce_core" showAllCode="1" useLocalCopy="0"/>
     <MODULES id="juce_cryptography" showAllCode="1" useLocalCopy="0"/>
     <MODULES id="juce_data_structures" showAllCode="1" useLocalCopy="0"/>
