@@ -19,7 +19,8 @@
     </GROUP>
   </MAINGROUP>
   <EXPORTFORMATS>
-    <VS2013 targetFolder="Builds/VisualStudio2013">
+    <VS2013 targetFolder="Builds/VisualStudio2013" externalLibraries="D:\code\libwebsockets\build\lib\Release\websockets_static.lib"
+            extraCompilerFlags="/I D:\code\libwebsockets\lib">
       <CONFIGURATIONS>
         <CONFIGURATION name="Debug" winWarningLevel="4" generateManifest="1" winArchitecture="32-bit"
                        isDebug="1" optimisation="1" targetName="audience_piano"/>

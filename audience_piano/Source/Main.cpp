@@ -8,9 +8,130 @@
   ==============================================================================
 */
 
+#include <cstdio>
+#include <cstdlib>
+#include <process.h>
+
+#include <libwebsockets.h>
+
 #include "../JuceLibraryCode/JuceHeader.h"
+
 #include "MainComponent.h"
 
+static volatile int force_exit = 0;
+static int versa, state;
+
+#define MAX_ECHO_PAYLOAD 1400
+#define LOCAL_RESOURCE_PATH INSTALL_DATADIR"/libwebsockets-test-server"
+
+struct per_session_data__echo {
+	unsigned char buf[LWS_SEND_BUFFER_PRE_PADDING + MAX_ECHO_PAYLOAD + LWS_SEND_BUFFER_POST_PADDING];
+	unsigned int len;
+	unsigned int index;
+};
+
+static int
+callback_echo(struct libwebsocket_context *context,
+struct libwebsocket *wsi,
+enum libwebsocket_callback_reasons reason, void *user,
+	void *in, size_t len)
+{
+	struct per_session_data__echo *pss = (struct per_session_data__echo *)user;
+	int n;
+
+	switch (reason) {
+
+#ifndef LWS_NO_SERVER
+		/* when the callback is used for server operations --> */
+
+	case LWS_CALLBACK_SERVER_WRITEABLE:
+	do_tx :
+		n = libwebsocket_write(wsi, &pss->buf[LWS_SEND_BUFFER_PRE_PADDING], pss->len, LWS_WRITE_TEXT);
+		  if (n < 0) {
+			  lwsl_err("ERROR %d writing to socket, hanging up\n", n);
+			  return 1;
+		  }
+		  if (n < (int)pss->len) {
+			  lwsl_err("Partial write\n");
+			  return -1;
+		  }
+		  break;
+
+	case LWS_CALLBACK_RECEIVE:
+	do_rx :
+		if (len > MAX_ECHO_PAYLOAD) {
+			lwsl_err("Server received packet bigger than %u, hanging up\n", MAX_ECHO_PAYLOAD);
+			return 1;
+		}
+		  memcpy(&pss->buf[LWS_SEND_BUFFER_PRE_PADDING], in, len);
+		  pss->len = (unsigned int)len;
+		  libwebsocket_callback_on_writable(context, wsi);
+		  break;
+#endif
+
+#ifndef LWS_NO_CLIENT
+		  /* when the callback is used for client operations --> */
+
+	case LWS_CALLBACK_CLOSED:
+	case LWS_CALLBACK_CLIENT_CONNECTION_ERROR:
+		lwsl_info("closed\n");
+		state = 0;
+		break;
+
+	case LWS_CALLBACK_CLIENT_ESTABLISHED:
+		lwsl_notice("Client has connected\n");
+		pss->index = 0;
+		state = 2;
+		break;
+
+	case LWS_CALLBACK_CLIENT_RECEIVE:
+#ifndef LWS_NO_SERVER
+		if (versa)
+			goto do_rx;
+#endif
+		lwsl_notice("Client RX: %s", (char *)in);
+		break;
+
+	case LWS_CALLBACK_CLIENT_WRITEABLE:
+#ifndef LWS_NO_SERVER
+		if (versa)
+			goto do_tx;
+#endif
+		/* we will send our packet... */
+		pss->len = sprintf((char *)&pss->buf[LWS_SEND_BUFFER_PRE_PADDING], "hello from libwebsockets-test-echo client pid %d index %d\n", getpid(), pss->index++);
+		lwsl_notice("Client TX: %s", &pss->buf[LWS_SEND_BUFFER_PRE_PADDING]);
+		n = libwebsocket_write(wsi, &pss->buf[LWS_SEND_BUFFER_PRE_PADDING], pss->len, LWS_WRITE_TEXT);
+		if (n < 0) {
+			lwsl_err("ERROR %d writing to socket, hanging up\n", n);
+			return -1;
+		}
+		if (n < (int)pss->len) {
+			lwsl_err("Partial write\n");
+			return -1;
+		}
+		break;
+	case LWS_CALLBACK_OPENSSL_LOAD_EXTRA_CLIENT_VERIFY_CERTS:
+
+		break;
+#endif
+	default:
+		break;
+	}
+
+	return 0;
+}
+
+static struct libwebsocket_protocols protocols[] = {
+	/* first protocol must always be HTTP handler */
+	{
+		"handler_http",		/* name */
+		callback_echo,		/* callback */
+		sizeof(struct per_session_data__echo)	/* per_session_data_size */
+	},
+	{
+		NULL, NULL, 0		/* End of list */
+	}
+};
 
 //==============================================================================
 class audience_pianoApplication  : public JUCEApplication
@@ -30,6 +151,37 @@ public:
 		commandLine;
 
         mainWindow = new MainWindow (getApplicationName(), adm);
+
+		// create socket info
+		struct lws_context_creation_info info;
+		info.port = 80;
+		info.iface = "";
+		info.protocols = protocols;
+		info.extensions = libwebsocket_get_internal_extensions();
+		info.ssl_cert_filepath = NULL;
+		info.ssl_private_key_filepath = NULL;
+		info.gid = -1;
+		info.uid = -1;
+		info.options = 0;
+
+		// create socket context from info
+		struct libwebsocket_context *context = libwebsocket_create_context(&info);
+		if (context == NULL) {
+			lwsl_err("libwebsocket init failed\n");
+			//return -1;
+			return;
+		}
+
+		// run server
+		while (1) {
+			libwebsocket_service(context, 10);
+			// libwebsocket_service will process all waiting events with their
+			// callback functions and then wait 50 ms.
+			// (this is a single threaded webserver and this will keep our server
+			// from generating load while there are not requests to process)
+		}
+
+		libwebsocket_context_destroy(context);
     }
 
     void shutdown() override

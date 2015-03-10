@@ -67,7 +67,7 @@ public:
 				((int)(time / 60.0)) % 60,
 				((int)time) % 60)
 				+ "  -  " + getMidiMessageDescription(message),
-				Rectangle<int>(width, height).reduced(4, 0),
+				juce::Rectangle<int>(width, height).reduced(4, 0),
 				Justification::centredLeft, true);
 		}
 	}
